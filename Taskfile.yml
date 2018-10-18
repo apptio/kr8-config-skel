@@ -1,0 +1,60 @@
+{
+   "output": "prefixed",
+   "tasks": {
+      "default": {
+         "cmds": [
+            "kr8-helpers check-environment",
+            {
+               "task": "one"
+            },
+            {
+               "task": "two"
+            }
+         ]
+      },
+      "one": {
+         "cmds": [
+            {
+               "task": "one_taskfile"
+            },
+            "task -d tmp/one default"
+         ],
+         "desc": "generate components for one"
+      },
+      "one_taskfile": {
+         "cmds": [
+            "mkdir -p tmp/one",
+            "kr8 jsonnet render --cluster one --format yaml templates/task-generate-cluster-sequential.jsonnet > tmp/one/Taskfile.yml"
+         ],
+         "desc": "generate task file in tmp directory for cluster: one"
+      },
+      "taskfiles": {
+         "cmds": [
+            {
+               "task": "one_taskfile"
+            },
+            {
+               "task": "two_taskfile"
+            }
+         ],
+         "desc": "generate task files for all clusters"
+      },
+      "two": {
+         "cmds": [
+            {
+               "task": "two_taskfile"
+            },
+            "task -d tmp/two default"
+         ],
+         "desc": "generate components for two"
+      },
+      "two_taskfile": {
+         "cmds": [
+            "mkdir -p tmp/two",
+            "kr8 jsonnet render --cluster two --format yaml templates/task-generate-cluster-sequential.jsonnet > tmp/two/Taskfile.yml"
+         ],
+         "desc": "generate task file in tmp directory for cluster: two"
+      }
+   },
+   "version": "2"
+}
