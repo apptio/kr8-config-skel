@@ -14,7 +14,7 @@ if [ -z "$cluster" ]
 then
   echo "Usage: $0 {cluster}"
   echo "Available clusters:"
-  task -l | grep components | awk '{print $2}' | tr -d ':'
+  task -l | grep components | grep -v 'deploy' | grep -v 'dryrun' | awk '{print $2}' | tr -d ':'
   echo "all"
   exit 1
 fi

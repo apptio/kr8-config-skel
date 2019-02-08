@@ -34,8 +34,8 @@ check-environment()
 set-output()
 {
   # globals 
-  outputDir="${KR8_BASE}/generated/${KR8_CLUSTER}/${KR8_COMPONENT}/manifest"
-  metaDir="${KR8_BASE}/generated/${KR8_CLUSTER}/${KR8_COMPONENT}/metadata"
+  outputDir="${KR8_BASE}/generated/${KR8_CLUSTER}/${KR8_COMPONENT}"
+  metaDir="${KR8_BASE}/metadata//${KR8_CLUSTER}/${KR8_COMPONENT}"
 }
 
 clean-output()
@@ -64,11 +64,15 @@ _helm-render() {
 
 helm-render() {
   local _chart="$1"
+  local tmpfile
 
   check-environment
   set-output
 
-  _helm-render "$_chart" "$outputDir/${_chart}.yaml"
+  tmpfile=$(mktemp)
+  _helm-render "$_chart" "$tmpfile"
+   kr8 jsonnet render --prune=false --cluster "$KR8_CLUSTER" --component "$KR8_COMPONENT" --format stream $KR8_JSONNET_ARGS $KR8_BASE/lib/addnamespace.jsonnet  --ext-str-file inputYaml="$tmpfile" > "$outputDir/${_chart}.yaml"
+   rm -f "$tmpfile"
 }
 
 set-meta(){
@@ -105,14 +109,18 @@ helm-render-with-patch() {
   local _chart="$1"
   local _patch="$2"
   local tmpfile
+  local tmpfile2
 
   check-environment
   set-output
 
   tmpfile=$(mktemp)
+  tmpfile2=$(mktemp)
   _helm-render "$_chart" "$tmpfile"
-  kr8 jsonnet render --cluster "$KR8_CLUSTER" --component "$KR8_COMPONENT" --format stream $KR8_JSONNET_ARGS patches.jsonnet  --ext-str-file inputYaml="$tmpfile" > "$outputDir/${_chart}.yaml"
-  rm -f $tmpfile
+  kr8 jsonnet render --cluster "$KR8_CLUSTER" --component "$KR8_COMPONENT" --format stream $KR8_JSONNET_ARGS patches.jsonnet  --ext-str-file inputYaml="$tmpfile" > "$tmpfile2"
+  rm -f $tmpfile 
+  kr8 jsonnet render --prune=false --cluster "$KR8_CLUSTER" --component "$KR8_COMPONENT" --format stream $KR8_JSONNET_ARGS $KR8_BASE/lib/addnamespace.jsonnet  --ext-str-file inputYaml="$tmpfile2" > "$outputDir/${_chart}.yaml"
+  rm -f $tmpfile2
 }
 
 yaml-install() {
@@ -125,7 +133,8 @@ yaml-install() {
   do
     local outf
     outf=$(basename $yaml)
-    kr8 yaml helmclean < "$yaml" > "$outputDir/$outf"
+    kr8 jsonnet render --prune=false --cluster "$KR8_CLUSTER" --component "$KR8_COMPONENT" --format stream $KR8_JSONNET_ARGS $KR8_BASE/lib/addnamespace.jsonnet  --ext-str-file inputYaml="$yaml" > "$outputDir/$outf"
+#    kr8 yaml helmclean < "$yaml" > "$outputDir/$outf"
   done
 }
 
@@ -133,15 +142,19 @@ jsonnet-render() {
   check-environment
   set-output
   set-meta
+  local tmpfile
 
   # Process each jsonnet file, and output yaml stream to output directory
   # The jsonnet files must output a list of objects
+  tmpfile=$(mktemp)
   for jsonnet in "$@"
   do
     local outf
     outf=$(basename $jsonnet | sed 's/\.jsonnet$/.yaml/')
-    kr8 jsonnet render --cluster "$KR8_CLUSTER" --component "$KR8_COMPONENT" --format stream "$jsonnet" "$@" $KR8_JSONNET_ARGS > "$outputDir/$outf"
+    kr8 jsonnet render --cluster "$KR8_CLUSTER" --component "$KR8_COMPONENT" --format stream "$jsonnet" "$@" $KR8_JSONNET_ARGS > "$tmpfile"
+    kr8 jsonnet render --prune=false --cluster "$KR8_CLUSTER" --component "$KR8_COMPONENT" --format stream $KR8_JSONNET_ARGS $KR8_BASE/lib/addnamespace.jsonnet  --ext-str-file inputYaml="$tmpfile" > "$outputDir/$outf"
   done
+  rm -f "$tmpfile"
 }
 
 [ -z "$*" ] && fail "No sub-command provided"
