@@ -88,4 +88,103 @@ local kube = import 'kube.libsonnet';
     },
     data:: {},
   },
+
+  MeteringReport(name, namespace='metering'): {
+    apiVersion: 'metering.openshift.io/v1alpha1',
+    kind: 'Report',
+    metadata: {
+      name: name,
+      namespace: namespace,
+    },
+    spec: error 'Must specify report spec',
+  },
+
+  BindPSPToAllServiceAccounts(clusterRole, namespace): kube.RoleBinding(clusterRole) {
+    local allServiceAccounts = {
+      kind: 'Group',
+      apiGroup: 'rbac.authorization.k8s.io',
+      name: 'system:serviceaccounts',
+    },
+    metadata+: { namespace: namespace },
+    roleRef+: {
+      kind: 'ClusterRole',
+      name: clusterRole,
+    },
+    subjects: [
+      allServiceAccounts,
+    ],
+  },
+
+  BindPSPToServiceAccount(clusterRole, account, namespace): kube.RoleBinding(clusterRole) {
+    local serviceAccount = {
+      kind: 'ServiceAccount',
+      namespace: namespace,
+      name: account,
+    },
+    metadata+: { namespace: namespace },
+    roleRef+: {
+      kind: 'ClusterRole',
+      name: clusterRole,
+    },
+    subjects: [
+      serviceAccount,
+    ],
+  },
+
+  // Get K8S minor version
+  K8SMinorVersion(version):: std.parseInt(std.split(version, '.')[1]),
+
+  ServiceMonitor(name, namespace, port='8085', interval='30s', joblabel='app'): {
+    apiVersion: 'monitoring.coreos.com/v1',
+    kind: 'ServiceMonitor',
+    metadata: {
+      labels: {
+        'k8s-app': name,  // the label name (k8s-app) must match the service monitor selector in the prometheus resource
+      },
+      name: name,
+      namespace: namespace,
+    },
+    // the rest of the spec needs to be merged in
+    spec: {
+      jobLabel: 'app',
+      endpoints: [
+        {
+          interval: interval,
+          targetPort: std.parseInt(port),
+        },
+      ],
+      selector: {
+        matchLabels: {
+          app: name,
+        },
+      },
+    },
+  },
+
+  ArgoApp(name, appnamespace, namespace, cluster, autosync=true): {
+    apiVersion: 'argoproj.io/v1alpha1',
+    kind: 'Application',
+    metadata: {
+      name: std.strReplace(name, '_', '-'),
+      namespace: namespace,
+    },
+    spec: {
+      [if autosync then 'syncPolicy']+: {
+        automated: {
+          prune: false,
+          selfHeal: false,
+        },
+      }, 
+      destination: {
+        server: 'https://kubernetes.default.svc',
+        namespace: appnamespace,
+      },
+      project: 'kr8',
+      source: {
+        path: 'generated/' + cluster + '/' + name,
+        repoURL: 'git@git.dapt.to:techops/kr8-configs.git',
+      },
+    },
+  },
+
 }

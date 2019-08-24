@@ -1,0 +1,28 @@
+#!/bin/bash
+
+cluster=$1
+component=$2
+
+if [ -z "$component" ]
+then
+  echo "Usage: $0 cluster component"
+  exit 1
+fi
+
+if [ -z "$cluster" ]
+then
+  echo "Usage: $0 cluster component"
+  exit 1
+fi
+
+bin/deployer diff $cluster $component &> /dev/null
+
+rc=$?
+
+if [ "$rc" -ne 0 ]
+then 
+  echo $component has differences. Run bin/deployer diff $cluster $component for more information
+  exit 1
+else
+  exit 0
+fi

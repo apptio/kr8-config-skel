@@ -1,0 +1,32 @@
+#!/bin/bash
+
+# Generates components used for initial cluster bootstrap
+
+set -e
+
+if [ ! -z "$1" ]
+then
+  export KR8_CLUSTER="$1"
+elif [ -z "$KR8_CLUSTER" ]
+then
+  echo "FATAL: KR8_CLUSTER must be set, or pass cluster name as argument"
+fi
+
+# Create task file with limited set of components
+if [ -z "$KR8_BASE" ]
+then
+  echo "FATAL: KR8_BASE must be set to the root of this repo"
+fi
+
+mkdir -p $KR8_BASE/tmp/uw2p-fcp-k1_bootstrap/
+
+# Create taskfile 
+kr8 jsonnet render --format yaml $KR8_BASE/templates/task-generate-cluster-parallel.jsonnet --clusterparams $KR8_BASE/templates/bootstrap_components.jsonnet  > $KR8_BASE/tmp/uw2p-fcp-k1_bootstrap/Taskfile.yml
+
+export KR8_GENERATED_DIR=$KR8_BASE/tmp/uw2p-fcp-k1_bootstrap/generated
+rm -fr $KR8_GENERATED_DIR; mkdir -p $KR8_GENERATED_DIR
+
+# Run taskfile
+task -d $KR8_BASE/tmp/uw2p-fcp-k1_bootstrap generate
+
+echo "SUCCESS: Generated files are in $KR8_GENERATED_DIR"

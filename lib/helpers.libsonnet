@@ -2,12 +2,24 @@
   patchPodSpec(dep, patch)::
     dep { spec+: { template+: { spec+: patch } } },
 
+  patchPodMetadata(dep, patch)::
+    dep { spec+: { template+: { metadata+: patch } } },
+
   patchContainer(container)::
     {
       spec+: { template+: { spec+: {
         local checkContainerCount = std.assertEqual(std.length(super.containers), 1),
 
         containers: [super.containers[0] + container],
+      } } },
+    },
+
+  patchInitContainer(initContainer)::
+    {
+      spec+: { template+: { spec+: {
+        local checkinitContainerCount = std.assertEqual(std.length(super.initContainers), 1),
+
+        containers: [super.initContainers[0] + initContainer],
       } } },
     },
 
@@ -26,6 +38,16 @@
       spec+: { template+: { spec+: {
         local checkVolumeCount = std.assertEqual(std.length(super.volumes), 1),
         volumes: [super.volumes[0] + volume],
+      } } },
+    },
+
+  patchVolumeNamed(name, volume)::
+    {
+      spec+: { template+: { spec+: {
+        volumes: [
+          if v.name == name then v + volume else v
+          for v in super.volumes
+        ],
       } } },
     },
 

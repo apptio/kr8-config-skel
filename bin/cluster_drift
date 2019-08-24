@@ -1,0 +1,11 @@
+#!/bin/bash
+
+cluster=$1
+
+if [ -z "$cluster" ]
+then
+  echo "Usage: $0 cluster"
+  exit 1
+fi
+
+for i in $(kr8 cluster components --cluster $cluster | jq 'keys | .[]' -r); do bin/component_drift $cluster $i; done
